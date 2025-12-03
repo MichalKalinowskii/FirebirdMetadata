@@ -12,4 +12,4 @@
       - FIREBIRD_DATABASE=mirror.fdb
       - FIREBIRD_DATABASE_DEFAULT_CHARSET=UTF8
     volumes:
-      - ./data:/var/lib/firebird/data
+      - ./databaseDirectory:/var/lib/firebird/data
