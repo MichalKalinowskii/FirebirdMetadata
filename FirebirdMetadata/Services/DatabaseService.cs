@@ -50,17 +50,33 @@ namespace DbMetaTool.Services
         {
             try
             {
-                if (string.IsNullOrWhiteSpace(scriptsDirectory) || !Directory.Exists(scriptsDirectory))
+                if (string.IsNullOrWhiteSpace(scriptsDirectory))
+                {
+                    return Result.Failure(new Error("EmptyScriptPath", $"Scripts path not found: {scriptsDirectory}"));
+                }
+
+                var singleSqlFilePath = string.Equals(Path.GetExtension(scriptsDirectory), ".sql", StringComparison.OrdinalIgnoreCase);
+                var files = new List<string>();
+
+                if (singleSqlFilePath)
+                {
+                    files.Add(scriptsDirectory);
+                }
+                else if (!Directory.Exists(scriptsDirectory))
                 {
                     return Result.Failure(new Error("DirectoryNotFound", $"Scripts directory not found: {scriptsDirectory}"));
                 }
-
-                var files = Directory.EnumerateFiles(
-                        scriptsDirectory,
-                        "*.sql",
-                        SearchOption.TopDirectoryOnly)
-                    .OrderBy(f => f, StringComparer.OrdinalIgnoreCase)
-                    .ToList();
+                else
+                {
+                    files.AddRange(
+                        Directory.EnumerateFiles(
+                            scriptsDirectory,
+                            "*.sql",
+                            SearchOption.TopDirectoryOnly)
+                        .OrderBy(f => f, StringComparer.OrdinalIgnoreCase)
+                        .ToList()
+                    );
+                }
 
                 if (files.Count == 0)
                 {

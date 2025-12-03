@@ -13,7 +13,7 @@ namespace DbMetaTool
         // DbMetaTool update-db --connection-string "..." --scripts-dir "C:\scripts"
         public static int Main(string[] args)
         {
-            BuildDatabase("C:\\Users\\admin\\Desktop\\firebirdDatabases", "C:\\Users\\admin\\Desktop\\firebirdDatabases\\test");
+            BuildDatabase("C:\\Users\\admin\\Desktop\\firebirdDatabases\\test.fdb", "C:\\Users\\admin\\Desktop\\firebirdDatabases\\test\\test.sql");
             if (args.Length == 0)
             {
                 Console.WriteLine("Użycie:");
