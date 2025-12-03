@@ -7,7 +7,7 @@ using System.Text.Unicode;
 
 namespace DbMetaTool.Services
 {
-    public static class DatabaseService
+    public static class DatabaseBuilderService
     {
         public static Result DropDatabase(string connectionString)
         {

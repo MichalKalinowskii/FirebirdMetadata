@@ -113,7 +113,7 @@ namespace DbMetaTool
                     Dialect=3;
                     Charset=UTF8;";
 
-            var databaseCreationResult = DatabaseService.CreateDatabase(connectionString);
+            var databaseCreationResult = DatabaseBuilderService.CreateDatabase(connectionString);
 
             if (databaseCreationResult.IsFailure)
             {
@@ -121,11 +121,11 @@ namespace DbMetaTool
                 return;
             }
 
-            var scriptExecutionResult = DatabaseService.ExecuteSqlScriptsFromDirectory(connectionString, scriptsDirectory);
+            var scriptExecutionResult = DatabaseBuilderService.ExecuteSqlScriptsFromDirectory(connectionString, scriptsDirectory);
 
             if (scriptExecutionResult.IsFailure)
             {
-                var dropResult = DatabaseService.DropDatabase(connectionString);
+                var dropResult = DatabaseBuilderService.DropDatabase(connectionString);
 
                 if (dropResult.IsFailure)
                 {
