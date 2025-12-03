@@ -13,7 +13,7 @@ namespace DbMetaTool
         // DbMetaTool update-db --connection-string "..." --scripts-dir "C:\scripts"
         public static int Main(string[] args)
         {
-            DatabaseService.CreateDatabase("C:\\Users\\admin\\Desktop\\firebirdDatabases\\test1.fdb", "C:\\Users\\admin\\Desktop\\firebirdDatabases\\test");
+            BuildDatabase("C:\\Users\\admin\\Desktop\\firebirdDatabases", "C:\\Users\\admin\\Desktop\\firebirdDatabases\\test");
             if (args.Length == 0)
             {
                 Console.WriteLine("Użycie:");
@@ -90,6 +90,14 @@ namespace DbMetaTool
             //    (tylko domeny, tabele, procedury).
             // 3) Obsłuż błędy i wyświetl raport.
             //throw new NotImplementedException();
+
+            bool hasFdbExtension = string.Equals(Path.GetExtension(databaseDirectory), ".fdb", StringComparison.OrdinalIgnoreCase);
+
+            if (!hasFdbExtension)
+            {
+                string generatedFileName = $"{DateTime.UtcNow:yyyyMMdd_HHmmss}_{Guid.NewGuid()}.fdb";
+                databaseDirectory = Path.Combine(databaseDirectory, generatedFileName);
+            }
 
             if (!string.IsNullOrWhiteSpace(databaseDirectory) && File.Exists(databaseDirectory))
             {
