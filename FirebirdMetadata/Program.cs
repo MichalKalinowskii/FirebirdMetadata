@@ -1,3 +1,5 @@
+using DbMetaTool.Services;
+using DbMetaTool.UnitOfWork;
 using System;
 using System.IO;
 
@@ -11,10 +13,11 @@ namespace DbMetaTool
         // DbMetaTool update-db --connection-string "..." --scripts-dir "C:\scripts"
         public static int Main(string[] args)
         {
+            DatabaseService.CreateDatabase("C:\\Users\\admin\\Desktop\\firebirdDatabases\\test1.fdb", "C:\\Users\\admin\\Desktop\\firebirdDatabases\\test");
             if (args.Length == 0)
             {
                 Console.WriteLine("Użycie:");
-                Console.WriteLine("  build-db --db-dir <ścieżka> --scripts-dir <ścieżka>");
+                Console.WriteLine("  build-db --db-dir* <ścieżka> --scripts-dir <ścieżka>");
                 Console.WriteLine("  export-scripts --connection-string <connStr> --output-dir <ścieżka>");
                 Console.WriteLine("  update-db --connection-string <connStr> --scripts-dir <ścieżka>");
                 return 1;
@@ -86,7 +89,45 @@ namespace DbMetaTool
             // 2) Wczytaj i wykonaj kolejno skrypty z katalogu scriptsDirectory
             //    (tylko domeny, tabele, procedury).
             // 3) Obsłuż błędy i wyświetl raport.
-            throw new NotImplementedException();
+            //throw new NotImplementedException();
+
+            if (!string.IsNullOrWhiteSpace(databaseDirectory) && File.Exists(databaseDirectory))
+            {
+                Console.WriteLine($"Database file already exists: {databaseDirectory}");
+                return;
+            }
+
+            string connectionString = $@"
+                    User=SYSDBA;Password=zaq1@WSX;
+                    Database={databaseDirectory};
+                    DataSource=127.0.0.1;
+                    Port=3050;
+                    Dialect=3;
+                    Charset=UTF8;";
+
+            var databaseCreationResult = DatabaseService.CreateDatabase(connectionString);
+
+            if (databaseCreationResult.IsFailure)
+            {
+                Console.WriteLine($"Failed to create database - {databaseDirectory}. " + databaseCreationResult.Error.Description);
+                return;
+            }
+
+            var scriptExecutionResult = DatabaseService.ExecuteSqlScriptsFromDirectory(connectionString, scriptsDirectory);
+
+            if (scriptExecutionResult.IsFailure)
+            {
+                var dropResult = DatabaseService.DropDatabase(connectionString);
+
+                if (dropResult.IsFailure)
+                {
+                    Console.WriteLine($"FATAL ERROR: Failed to drop database after script execution failure. Remove database file by hand - {databaseDirectory}. " + dropResult.Error.Description);
+                    return;
+                }
+
+                Console.WriteLine($"Failed to execute scripts from directory - {scriptsDirectory}. " + scriptExecutionResult.Error.Description);
+                return;
+            }
         }
 
         /// <summary>
