@@ -2,6 +2,7 @@ using DbMetaTool.Services;
 using DbMetaTool.UnitOfWork;
 using System;
 using System.IO;
+using System.Text;
 
 namespace DbMetaTool
 {
@@ -13,7 +14,6 @@ namespace DbMetaTool
         // DbMetaTool update-db --connection-string "..." --scripts-dir "C:\scripts"
         public static int Main(string[] args)
         {
-            BuildDatabase("C:\\Users\\admin\\Desktop\\firebirdDatabases\\test.fdb", "C:\\Users\\admin\\Desktop\\firebirdDatabases\\test\\test.sql");
             if (args.Length == 0)
             {
                 Console.WriteLine("Użycie:");
@@ -84,15 +84,12 @@ namespace DbMetaTool
         /// </summary>
         public static void BuildDatabase(string databaseDirectory, string scriptsDirectory)
         {
-            // TODO:
-            // 1) Utwórz pustą bazę danych FB 5.0 w katalogu databaseDirectory.
-            // 2) Wczytaj i wykonaj kolejno skrypty z katalogu scriptsDirectory
-            //    (tylko domeny, tabele, procedury).
-            // 3) Obsłuż błędy i wyświetl raport.
-            //throw new NotImplementedException();
+            var stopwatch = System.Diagnostics.Stopwatch.StartNew();
+            var reportBuilder = new StringBuilder();
+            reportBuilder.AppendLine($"--- RAPORT TWORZENIA BAZY DANYCH: {DateTime.Now} ---");
 
+            // --- Logika nazwy pliku ---
             bool hasFdbExtension = string.Equals(Path.GetExtension(databaseDirectory), ".fdb", StringComparison.OrdinalIgnoreCase);
-
             if (!hasFdbExtension)
             {
                 string generatedFileName = $"{DateTime.UtcNow:yyyyMMdd_HHmmss}_{Guid.NewGuid()}.fdb";
@@ -101,41 +98,85 @@ namespace DbMetaTool
 
             if (!string.IsNullOrWhiteSpace(databaseDirectory) && File.Exists(databaseDirectory))
             {
-                Console.WriteLine($"Database file already exists: {databaseDirectory}");
+                Console.WriteLine($"[ABORT] Database file already exists: {databaseDirectory}");
                 return;
             }
 
             string connectionString = $@"
-                    User=SYSDBA;Password=zaq1@WSX;
-                    Database={databaseDirectory};
-                    DataSource=127.0.0.1;
-                    Port=3050;
-                    Dialect=3;
-                    Charset=UTF8;";
+            User=SYSDBA;Password=zaq1@WSX;
+            Database={databaseDirectory};
+            DataSource=127.0.0.1;
+            Port=3050;
+            Dialect=3;
+            Charset=UTF8;";
 
+            // --- KROK 1: TWORZENIE BAZY ---
+            Console.WriteLine("Tworzenie pustej bazy danych...");
             var databaseCreationResult = DatabaseBuilderService.CreateDatabase(connectionString);
 
             if (databaseCreationResult.IsFailure)
             {
-                Console.WriteLine($"Failed to create database - {databaseDirectory}. " + databaseCreationResult.Error.Description);
+                Console.ForegroundColor = ConsoleColor.Red;
+                Console.WriteLine($"[CRITICAL] Failed to create database: {databaseCreationResult.Error.Description}");
+                Console.ResetColor();
                 return;
             }
+            reportBuilder.AppendLine($"[ OK ] Utworzono plik bazy: {databaseDirectory}");
 
-            var scriptExecutionResult = DatabaseBuilderService.ExecuteSqlScriptsFromDirectory(connectionString, scriptsDirectory);
+            // --- KROK 2: WYKONYWANIE SKRYPTÓW (ze zbieraniem logów) ---
+            Console.WriteLine("Wykonywanie skryptów SQL...");
 
+            // Zmieniamy wywołanie - teraz odbieramy też listę logów
+            var (scriptExecutionResult, logs) = DatabaseBuilderService.ExecuteSqlScriptsFromDirectory(connectionString, scriptsDirectory);
+
+            // --- KROK 3: GENEROWANIE I WYŚWIETLANIE RAPORTU ---
+
+            // Dodajemy szczegóły skryptów do raportu
+            if (logs != null && logs.Any())
+            {
+                reportBuilder.AppendLine("--- SZCZEGÓŁY WYKONANIA SKRYPTÓW ---");
+                foreach (var log in logs)
+                {
+                    string status = log.IsSuccess ? "[ OK ]" : "[FAIL]";
+                    reportBuilder.AppendLine($"{status} {log.ScriptName} ({log.DurationMs}ms)");
+                    if (!log.IsSuccess)
+                    {
+                        reportBuilder.AppendLine($"       BŁĄD: {log.Message}");
+                    }
+                }
+            }
+
+            // Obsługa błędów (Drop database)
             if (scriptExecutionResult.IsFailure)
             {
+                reportBuilder.AppendLine("----------------------------------------");
+                reportBuilder.AppendLine($"[ERROR] Proces przerwany. Błąd: {scriptExecutionResult.Error.Description}");
+
+                Console.WriteLine("Wystąpił błąd. Usuwanie uszkodzonej bazy...");
                 var dropResult = DatabaseBuilderService.DropDatabase(connectionString);
 
                 if (dropResult.IsFailure)
                 {
-                    Console.WriteLine($"FATAL ERROR: Failed to drop database after script execution failure. Remove database file by hand - {databaseDirectory}. " + dropResult.Error.Description);
-                    return;
+                    reportBuilder.AppendLine($"[FATAL] Nie udało się usunąć bazy po błędzie: {dropResult.Error.Description}");
+                    reportBuilder.AppendLine($"        Usuń plik ręcznie: {databaseDirectory}");
                 }
-
-                Console.WriteLine($"Failed to execute scripts from directory - {scriptsDirectory}. " + scriptExecutionResult.Error.Description);
-                return;
+                else
+                {
+                    reportBuilder.AppendLine($"[INFO] Usunięto uszkodzony plik bazy danych.");
+                }
             }
+            else
+            {
+                reportBuilder.AppendLine("----------------------------------------");
+                reportBuilder.AppendLine("[SUCCESS] Baza danych została utworzona poprawnie.");
+            }
+
+            stopwatch.Stop();
+            reportBuilder.AppendLine($"Całkowity czas operacji: {stopwatch.Elapsed.TotalSeconds:F2} s");
+
+            // Finalne wyświetlenie raportu w konsoli
+            Console.WriteLine();
+            Console.WriteLine(reportBuilder.ToString());
         }
 
         /// <summary>
