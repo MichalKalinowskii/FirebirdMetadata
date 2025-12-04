@@ -24,7 +24,7 @@ namespace DbMetaTool.Services
             }
             catch (Exception cleanupEx)
             {
-                return Result.Failure(new Error("DatabaseDropCleanupFailed", $"Cleanup failed: {cleanupEx.Message}"));
+                return Result.Failure(new Error("DatabaseDropCleanupFailed", $"Czyszczenie nie powiodło się: {cleanupEx.Message}"));
             }
         }
 
@@ -41,7 +41,7 @@ namespace DbMetaTool.Services
             }
             catch (Exception cleanupEx)
             {
-                return Result.Failure(new Error("DatabaseInitializationFailed", $"Cleanup failed: {cleanupEx.Message}"));
+                return Result.Failure(new Error("DatabaseInitializationFailed", $"Czyszczenie nie powiodło się: {cleanupEx.Message}"));
             }
         }
 
@@ -53,7 +53,7 @@ namespace DbMetaTool.Services
             {
                 if (string.IsNullOrWhiteSpace(scriptsDirectory))
                 {
-                    return (Result.Failure(new Error("EmptyScriptPath", $"Scripts path not found: {scriptsDirectory}")), logs);
+                    return (Result.Failure(new Error("EmptyScriptPath", $"Nie znaleziono ścieżki skryptów: {scriptsDirectory}")), logs);
                 }
 
                 var singleSqlFilePath = string.Equals(Path.GetExtension(scriptsDirectory), ".sql", StringComparison.OrdinalIgnoreCase);
@@ -65,7 +65,7 @@ namespace DbMetaTool.Services
                 }
                 else if (!Directory.Exists(scriptsDirectory))
                 {
-                    return (Result.Failure(new Error("DirectoryNotFound", $"Scripts directory not found: {scriptsDirectory}")), logs);
+                    return (Result.Failure(new Error("DirectoryNotFound", $"Nie znaleziono katalogu skryptów: {scriptsDirectory}")), logs);
                 }
                 else
                 {
@@ -78,7 +78,7 @@ namespace DbMetaTool.Services
 
                 if (files.Count == 0)
                 {
-                    return (Result.Failure(new Error("NoScriptsFound", $"No *.sql files found in: {scriptsDirectory}")), logs);
+                    return (Result.Failure(new Error("NoScriptsFound", $"Nie znaleziono plików *.sql w: {scriptsDirectory}")), logs);
                 }
 
                 // Przekazujemy listę logs do metody wykonawczej, żeby ją uzupełniła
@@ -108,8 +108,8 @@ namespace DbMetaTool.Services
                     {
                         if (string.IsNullOrWhiteSpace(path) || !File.Exists(path))
                         {
-                            logs.Add(new ScriptLogEntry { ScriptName = fileName, IsSuccess = false, Message = "File not found" });
-                            return (Result.Failure(new Error("ScriptNotFound", $"Script file not found: {path}")), logs);
+                            logs.Add(new ScriptLogEntry { ScriptName = fileName, IsSuccess = false, Message = "Nie znaleziono pliku" });
+                            return (Result.Failure(new Error("ScriptNotFound", $"Nie znaleziono pliku skryptu: {path}")), logs);
                         }
 
                         var sqlText = File.ReadAllText(path);
@@ -146,7 +146,7 @@ namespace DbMetaTool.Services
                         });
 
                         // Zwracamy błąd, ale też listę logów (żeby wiedzieć co przeszło, a co nie)
-                        return (Result.Failure(new Error("ScriptExecutionFailed", $"Error in {fileName}: {ex.Message}")), logs);
+                        return (Result.Failure(new Error("ScriptExecutionFailed", $"Błąd w {fileName}: {ex.Message}")), logs);
                     }
                 }
 

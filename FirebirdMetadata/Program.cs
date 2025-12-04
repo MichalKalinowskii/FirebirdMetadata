@@ -12,13 +12,6 @@ namespace DbMetaTool
         // DbMetaTool update-db --connection-string "..." --scripts-dir "C:\scripts"
         public static int Main(string[] args)
         {
-            UpdateDatabase($@"
-                User=SYSDBA;Password=zaq1@WSX;
-                Database=C:\Users\admin\Desktop\firebirdDatabases\file.fdb;
-                DataSource=127.0.0.1;
-                Port=3050;
-                Dialect=3;
-                Charset=UTF8;", "C:\\Users\\admin\\Desktop\\firebirdDatabases\\updates");
             if (args.Length == 0)
             {
                 Console.WriteLine("Użycie:");
@@ -95,9 +88,9 @@ namespace DbMetaTool
 
             // --- Logika nazwy pliku ---
 
-            if (!string.IsNullOrWhiteSpace(databaseDirectory))
+            if (string.IsNullOrWhiteSpace(databaseDirectory))
             {
-                Console.WriteLine($"[ABORT] Inncorect database path");
+                Console.WriteLine($"[PRZERWANIE] Niepoprawna ścieżka do bazy danych");
                 return;
             }
 
@@ -110,7 +103,7 @@ namespace DbMetaTool
 
             if (File.Exists(databaseDirectory))
             {
-                Console.WriteLine($"[ABORT] Database file already exists: {databaseDirectory}");
+                Console.WriteLine($"[PRZERWANIE] Plik bazy danych już istnieje: {databaseDirectory}");
                 return;
             }
 
@@ -129,7 +122,7 @@ namespace DbMetaTool
             if (databaseCreationResult.IsFailure)
             {
                 Console.ForegroundColor = ConsoleColor.Red;
-                Console.WriteLine($"[CRITICAL] Failed to create database: {databaseCreationResult.Error.Description}");
+                Console.WriteLine($"[KRYTYCZNY] Nie udało się utworzyć bazy danych: {databaseCreationResult.Error.Description}");
                 Console.ResetColor();
                 return;
             }
@@ -149,7 +142,7 @@ namespace DbMetaTool
                 reportBuilder.AppendLine("--- SZCZEGÓŁY WYKONANIA SKRYPTÓW ---");
                 foreach (var log in logs)
                 {
-                    string status = log.IsSuccess ? "[ OK ]" : "[FAIL]";
+                    string status = log.IsSuccess ? "[ OK ]" : "[BŁĄD]";
                     reportBuilder.AppendLine($"{status} {log.ScriptName} ({log.DurationMs}ms)");
                     if (!log.IsSuccess)
                     {
@@ -162,14 +155,14 @@ namespace DbMetaTool
             if (scriptExecutionResult.IsFailure)
             {
                 reportBuilder.AppendLine("----------------------------------------");
-                reportBuilder.AppendLine($"[ERROR] Proces przerwany. Błąd: {scriptExecutionResult.Error.Description}");
+                reportBuilder.AppendLine($"[BŁĄD] Proces przerwany. Błąd: {scriptExecutionResult.Error.Description}");
 
                 Console.WriteLine("Wystąpił błąd. Usuwanie uszkodzonej bazy...");
                 var dropResult = DatabaseBuilderService.DropDatabase(connectionString);
 
                 if (dropResult.IsFailure)
                 {
-                    reportBuilder.AppendLine($"[FATAL] Nie udało się usunąć bazy po błędzie: {dropResult.Error.Description}");
+                    reportBuilder.AppendLine($"[KRYTYCZNY] Nie udało się usunąć bazy po błędzie: {dropResult.Error.Description}");
                     reportBuilder.AppendLine($"        Usuń plik ręcznie: {databaseDirectory}");
                 }
                 else
@@ -180,7 +173,7 @@ namespace DbMetaTool
             else
             {
                 reportBuilder.AppendLine("----------------------------------------");
-                reportBuilder.AppendLine("[SUCCESS] Baza danych została utworzona poprawnie.");
+                reportBuilder.AppendLine("[SUKCES] Baza danych została utworzona poprawnie.");
             }
 
             stopwatch.Stop();
