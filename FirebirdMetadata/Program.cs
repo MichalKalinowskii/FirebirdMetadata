@@ -224,8 +224,9 @@ namespace DbMetaTool
                 return;
             }
 
-            using var conn = new FbConnection(connectionString);
+            var scriptFiles = Directory.GetFiles(scriptsDirectory, "*.sql");
 
+            using var conn = new FbConnection(connectionString);
             try
             {
                 conn.Open();
@@ -236,7 +237,14 @@ namespace DbMetaTool
                 return;
             }
 
-            var scriptFiles = Directory.GetFiles(scriptsDirectory, "*.sql");
+            var result = UpdatingDatabaseService.UpdateDatabase(conn, scriptFiles);
+
+            if (result.IsFailure)
+            {
+                Console.WriteLine(result.Error.Description);
+            }
+
+            conn.Close();
         }
     }
 }
