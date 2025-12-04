@@ -1,8 +1,5 @@
 using DbMetaTool.Services;
-using DbMetaTool.UnitOfWork;
 using FirebirdSql.Data.FirebirdClient;
-using System;
-using System.IO;
 using System.Text;
 
 namespace DbMetaTool
@@ -90,6 +87,13 @@ namespace DbMetaTool
             reportBuilder.AppendLine($"--- RAPORT TWORZENIA BAZY DANYCH: {DateTime.Now} ---");
 
             // --- Logika nazwy pliku ---
+
+            if (!string.IsNullOrWhiteSpace(databaseDirectory))
+            {
+                Console.WriteLine($"[ABORT] Inncorect database path");
+                return;
+            }
+
             bool hasFdbExtension = string.Equals(Path.GetExtension(databaseDirectory), ".fdb", StringComparison.OrdinalIgnoreCase);
             if (!hasFdbExtension)
             {
@@ -97,20 +101,20 @@ namespace DbMetaTool
                 databaseDirectory = Path.Combine(databaseDirectory, generatedFileName);
             }
 
-            if (!string.IsNullOrWhiteSpace(databaseDirectory) && File.Exists(databaseDirectory))
+            if (File.Exists(databaseDirectory))
             {
                 Console.WriteLine($"[ABORT] Database file already exists: {databaseDirectory}");
                 return;
             }
 
             string connectionString = $@"
-            User=SYSDBA;Password=zaq1@WSX;
-            Database={databaseDirectory};
-            DataSource=127.0.0.1;
-            Port=3050;
-            Dialect=3;
-            Charset=UTF8;";
-
+                User=SYSDBA;Password=zaq1@WSX;
+                Database={databaseDirectory};
+                DataSource=127.0.0.1;
+                Port=3050;
+                Dialect=3;
+                Charset=UTF8;";
+        
             // --- KROK 1: TWORZENIE BAZY ---
             Console.WriteLine("Tworzenie pustej bazy danych...");
             var databaseCreationResult = DatabaseBuilderService.CreateDatabase(connectionString);

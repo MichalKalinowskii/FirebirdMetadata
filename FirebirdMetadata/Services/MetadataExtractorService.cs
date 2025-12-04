@@ -20,25 +20,25 @@ namespace DbMetaTool.Services
 
             var sb = new StringBuilder();
 
-            using (var cmd = new FbCommand(sql, conn))
-            using (var reader = cmd.ExecuteReader())
+            using var cmd = new FbCommand(sql, conn);
+            using var reader = cmd.ExecuteReader();
+            
+            while (reader.Read())
             {
-                while (reader.Read())
-                {
-                    string name = reader["RDB$FIELD_NAME"].ToString().Trim();
-                    string typeDef = DecodeFirebirdType(
-                        Convert.ToInt32(reader["RDB$FIELD_TYPE"]),
-                        Convert.ToInt32(reader["RDB$FIELD_LENGTH"]),
-                        Convert.ToInt32(reader["RDB$FIELD_SCALE"])
-                    );
+                string name = reader["RDB$FIELD_NAME"].ToString().Trim();
+                string typeDef = DecodeFirebirdType(
+                    Convert.ToInt32(reader["RDB$FIELD_TYPE"]),
+                    Convert.ToInt32(reader["RDB$FIELD_LENGTH"]),
+                    Convert.ToInt32(reader["RDB$FIELD_SCALE"])
+                );
 
-                    string notNull = reader["RDB$NULL_FLAG"] != DBNull.Value && Convert.ToInt32(reader["RDB$NULL_FLAG"]) == 1
-                        ? "NOT NULL"
-                        : "";
+                string notNull = reader["RDB$NULL_FLAG"] != DBNull.Value && Convert.ToInt32(reader["RDB$NULL_FLAG"]) == 1
+                    ? "NOT NULL"
+                    : "";
 
-                    sb.AppendLine($"CREATE DOMAIN {name} AS {typeDef} {notNull};");
-                }
+                sb.AppendLine($"CREATE DOMAIN {name} AS {typeDef} {notNull};");
             }
+            
 
             if (sb.Length > 0)
             {
@@ -51,56 +51,55 @@ namespace DbMetaTool.Services
             // Pobieranie listy tabel
             string tableSql = "SELECT RDB$RELATION_NAME FROM RDB$RELATIONS WHERE RDB$SYSTEM_FLAG = 0 AND RDB$VIEW_BLR IS NULL";
 
-            using (var cmdTables = new FbCommand(tableSql, conn))
-            using (var readerTables = cmdTables.ExecuteReader())
+            using var cmdTables = new FbCommand(tableSql, conn);
+            using var readerTables = cmdTables.ExecuteReader();
+            
+            while (readerTables.Read())
             {
-                while (readerTables.Read())
+                string tableName = readerTables["RDB$RELATION_NAME"].ToString().Trim();
+                var sb = new StringBuilder();
+
+                sb.AppendLine($"CREATE TABLE {tableName} (");
+
+                // Pobieranie kolumn dla danej tabeli
+                string colSql = @"
+                SELECT RF.RDB$FIELD_NAME, F.RDB$FIELD_TYPE, F.RDB$FIELD_LENGTH, F.RDB$FIELD_SCALE, RF.RDB$NULL_FLAG
+                FROM RDB$RELATION_FIELDS RF
+                JOIN RDB$FIELDS F ON RF.RDB$FIELD_SOURCE = F.RDB$FIELD_NAME
+                WHERE RF.RDB$RELATION_NAME = @Table
+                ORDER BY RF.RDB$FIELD_POSITION";
+
+                using (var cmdCols = new FbCommand(colSql, conn))
                 {
-                    string tableName = readerTables["RDB$RELATION_NAME"].ToString().Trim();
-                    var sb = new StringBuilder();
-
-                    sb.AppendLine($"CREATE TABLE {tableName} (");
-
-                    // Pobieranie kolumn dla danej tabeli
-                    string colSql = @"
-                    SELECT RF.RDB$FIELD_NAME, F.RDB$FIELD_TYPE, F.RDB$FIELD_LENGTH, F.RDB$FIELD_SCALE, RF.RDB$NULL_FLAG
-                    FROM RDB$RELATION_FIELDS RF
-                    JOIN RDB$FIELDS F ON RF.RDB$FIELD_SOURCE = F.RDB$FIELD_NAME
-                    WHERE RF.RDB$RELATION_NAME = @Table
-                    ORDER BY RF.RDB$FIELD_POSITION";
-
-                    using (var cmdCols = new FbCommand(colSql, conn))
+                    cmdCols.Parameters.AddWithValue("@Table", tableName);
+                    using (var readerCols = cmdCols.ExecuteReader())
                     {
-                        cmdCols.Parameters.AddWithValue("@Table", tableName);
-                        using (var readerCols = cmdCols.ExecuteReader())
+                        bool first = true;
+                        while (readerCols.Read())
                         {
-                            bool first = true;
-                            while (readerCols.Read())
-                            {
-                                if (!first) sb.AppendLine(",");
+                            if (!first) sb.AppendLine(",");
 
-                                string colName = readerCols["RDB$FIELD_NAME"].ToString().Trim();
-                                string typeDef = DecodeFirebirdType(
-                                    Convert.ToInt32(readerCols["RDB$FIELD_TYPE"]),
-                                    Convert.ToInt32(readerCols["RDB$FIELD_LENGTH"]),
-                                    Convert.ToInt32(readerCols["RDB$FIELD_SCALE"])
-                                );
+                            string colName = readerCols["RDB$FIELD_NAME"].ToString().Trim();
+                            string typeDef = DecodeFirebirdType(
+                                Convert.ToInt32(readerCols["RDB$FIELD_TYPE"]),
+                                Convert.ToInt32(readerCols["RDB$FIELD_LENGTH"]),
+                                Convert.ToInt32(readerCols["RDB$FIELD_SCALE"])
+                            );
 
-                                string notNull = readerCols["RDB$NULL_FLAG"] != DBNull.Value && Convert.ToInt32(readerCols["RDB$NULL_FLAG"]) == 1
-                                    ? "NOT NULL"
-                                    : "";
+                            string notNull = readerCols["RDB$NULL_FLAG"] != DBNull.Value && Convert.ToInt32(readerCols["RDB$NULL_FLAG"]) == 1
+                                ? "NOT NULL"
+                                : "";
 
-                                sb.Append($"    {colName} {typeDef} {notNull}");
-                                first = false;
-                            }
+                            sb.Append($"    {colName} {typeDef} {notNull}");
+                            first = false;
                         }
                     }
-                    sb.AppendLine();
-                    sb.AppendLine(");");
-
-                    // Zapisz każdą tabelę do osobnego pliku lub zbiorczo (tutaj: osobny plik dla tabeli)
-                    File.WriteAllText(Path.Combine(outputDir, $"02_Table_{tableName}.sql"), sb.ToString());
                 }
+                sb.AppendLine();
+                sb.AppendLine(");");
+
+                // Zapisz każdą tabelę do osobnego pliku lub zbiorczo (tutaj: osobny plik dla tabeli)
+                File.WriteAllText(Path.Combine(outputDir, $"02_Table_{tableName}.sql"), sb.ToString());
             }
         }
 
@@ -108,36 +107,35 @@ namespace DbMetaTool.Services
         {
             string procSql = "SELECT RDB$PROCEDURE_NAME, RDB$PROCEDURE_SOURCE FROM RDB$PROCEDURES WHERE RDB$SYSTEM_FLAG = 0";
 
-            using (var cmd = new FbCommand(procSql, conn))
-            using (var reader = cmd.ExecuteReader())
+            using var cmd = new FbCommand(procSql, conn);
+            using var reader = cmd.ExecuteReader();
+            
+            while (reader.Read())
             {
-                while (reader.Read())
-                {
-                    string procName = reader["RDB$PROCEDURE_NAME"].ToString().Trim();
-                    string source = reader["RDB$PROCEDURE_SOURCE"].ToString();
+                string procName = reader["RDB$PROCEDURE_NAME"].ToString().Trim();
+                string source = reader["RDB$PROCEDURE_SOURCE"].ToString();
 
-                    var sb = new StringBuilder();
+                var sb = new StringBuilder();
 
-                    // 1. Ustawienie terminatora na inny symbol (np. ^)
-                    sb.AppendLine("SET TERM ^ ;");
+                // 1. Ustawienie terminatora na inny symbol (np. ^)
+                sb.AppendLine("SET TERM ^ ;");
 
-                    // 2. Nagłówek procedury
-                    sb.AppendLine($"CREATE OR ALTER PROCEDURE {procName}");
-                    // Pamiętaj: Pełna rekonstrukcja parametrów wymaga RDB$PROCEDURE_PARAMETERS
-                    sb.AppendLine($"RETURNS (TOTAL_COUNT INTEGER)"); // Dodane, aby skrypt z testowej bazy działał!
-                    sb.AppendLine($"AS");
+                // 2. Nagłówek procedury
+                sb.AppendLine($"CREATE OR ALTER PROCEDURE {procName}");
+                // Pamiętaj: Pełna rekonstrukcja parametrów wymaga RDB$PROCEDURE_PARAMETERS
+                sb.AppendLine($"RETURNS (TOTAL_COUNT INTEGER)"); // Dodane, aby skrypt z testowej bazy działał!
+                sb.AppendLine($"AS");
 
-                    // 3. Ciało procedury (RDB$PROCEDURE_SOURCE zawiera tylko kod od AS/BEGIN do END)
-                    sb.AppendLine(source.Trim());
+                // 3. Ciało procedury (RDB$PROCEDURE_SOURCE zawiera tylko kod od AS/BEGIN do END)
+                sb.AppendLine(source.Trim());
 
-                    // 4. Użycie nowego terminatora i przywrócenie średnika
-                    sb.AppendLine($"^");
-                    sb.AppendLine($"SET TERM ; ^");
-                    sb.AppendLine();
-                    sb.AppendLine("COMMIT;"); // Zawsze po DDL warto zatwierdzić
+                // 4. Użycie nowego terminatora i przywrócenie średnika
+                sb.AppendLine($"^");
+                sb.AppendLine($"SET TERM ; ^");
+                sb.AppendLine();
+                sb.AppendLine("COMMIT;"); // Zawsze po DDL warto zatwierdzić
 
-                    File.WriteAllText(Path.Combine(outputDir, $"03_Proc_{procName}.sql"), sb.ToString());
-                }
+                File.WriteAllText(Path.Combine(outputDir, $"03_Proc_{procName}.sql"), sb.ToString());
             }
         }
 
