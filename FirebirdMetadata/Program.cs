@@ -1,5 +1,6 @@
 using DbMetaTool.Services;
 using DbMetaTool.UnitOfWork;
+using FirebirdSql.Data.FirebirdClient;
 using System;
 using System.IO;
 using System.Text;
@@ -14,6 +15,9 @@ namespace DbMetaTool
         // DbMetaTool update-db --connection-string "..." --scripts-dir "C:\scripts"
         public static int Main(string[] args)
         {
+            BuildDatabase("C:\\Users\\admin\\Desktop\\firebirdDatabases\\file.fdb", "C:\\Users\\admin\\Desktop\\firebirdDatabases\\export");
+            //ExportScripts($@"User=SYSDBA;Password=zaq1@WSX;Database=C:\Users\admin\Desktop\firebirdDatabases\file.fdb;DataSource=127.0.0.1;Port=3050;Dialect=3;Charset=UTF8;",
+            //    "C:\\Users\\admin\\Desktop\\firebirdDatabases\\export");
             if (args.Length == 0)
             {
                 Console.WriteLine("Użycie:");
@@ -184,11 +188,19 @@ namespace DbMetaTool
         /// </summary>
         public static void ExportScripts(string connectionString, string outputDirectory)
         {
-            // TODO:
-            // 1) Połącz się z bazą danych przy użyciu connectionString.
-            // 2) Pobierz metadane domen, tabel (z kolumnami) i procedur.
-            // 3) Wygeneruj pliki .sql / .json / .txt w outputDirectory.
-            throw new NotImplementedException();
+            if (!Directory.Exists(outputDirectory))
+            {
+                Directory.CreateDirectory(outputDirectory);
+            }
+
+            using var conn = new FbConnection(connectionString);
+            conn.Open();
+
+            MetadataExtractorService.ExportDomains(conn, outputDirectory);
+            MetadataExtractorService.ExportTables(conn, outputDirectory);
+            MetadataExtractorService.ExportProcedures(conn, outputDirectory);
+            
+            Console.WriteLine($"Eksport zakończony. Pliki zapisano w: {outputDirectory}");
         }
 
         /// <summary>
