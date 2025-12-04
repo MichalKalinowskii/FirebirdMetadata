@@ -218,11 +218,25 @@ namespace DbMetaTool
         /// </summary>
         public static void UpdateDatabase(string connectionString, string scriptsDirectory)
         {
-            // TODO:
-            // 1) Połącz się z bazą danych przy użyciu connectionString.
-            // 2) Wykonaj skrypty z katalogu scriptsDirectory (tylko obsługiwane elementy).
-            // 3) Zadbaj o poprawną kolejność i bezpieczeństwo zmian.
-            throw new NotImplementedException();
+            if (string.IsNullOrWhiteSpace(scriptsDirectory) || !Directory.Exists(scriptsDirectory))
+            {
+                Console.WriteLine("Nieprawidłowy katalog skryptów.");
+                return;
+            }
+
+            using var conn = new FbConnection(connectionString);
+
+            try
+            {
+                conn.Open();
+            }
+            catch (Exception ex)
+            {
+                Console.WriteLine($"Błąd połączenia z bazą danych: {ex.Message}");
+                return;
+            }
+
+            var scriptFiles = Directory.GetFiles(scriptsDirectory, "*.sql");
         }
     }
 }
