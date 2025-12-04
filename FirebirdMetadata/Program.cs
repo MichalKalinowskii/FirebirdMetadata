@@ -15,9 +15,6 @@ namespace DbMetaTool
         // DbMetaTool update-db --connection-string "..." --scripts-dir "C:\scripts"
         public static int Main(string[] args)
         {
-            BuildDatabase("C:\\Users\\admin\\Desktop\\firebirdDatabases\\file.fdb", "C:\\Users\\admin\\Desktop\\firebirdDatabases\\export");
-            //ExportScripts($@"User=SYSDBA;Password=zaq1@WSX;Database=C:\Users\admin\Desktop\firebirdDatabases\file.fdb;DataSource=127.0.0.1;Port=3050;Dialect=3;Charset=UTF8;",
-            //    "C:\\Users\\admin\\Desktop\\firebirdDatabases\\export");
             if (args.Length == 0)
             {
                 Console.WriteLine("Użycie:");
@@ -194,7 +191,16 @@ namespace DbMetaTool
             }
 
             using var conn = new FbConnection(connectionString);
-            conn.Open();
+
+            try
+            {
+                conn.Open();
+            }
+            catch (Exception ex)
+            {
+                Console.WriteLine($"Błąd połączenia z bazą danych: {ex.Message}");
+                return;
+            }
 
             MetadataExtractorService.ExportDomains(conn, outputDirectory);
             MetadataExtractorService.ExportTables(conn, outputDirectory);

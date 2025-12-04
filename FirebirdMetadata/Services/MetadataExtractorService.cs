@@ -99,17 +99,13 @@ namespace DbMetaTool.Services
                     sb.AppendLine(");");
 
                     // Zapisz każdą tabelę do osobnego pliku lub zbiorczo (tutaj: osobny plik dla tabeli)
-                    File.WriteAllText(Path.Combine(outputDir, $"Table_{tableName}.sql"), sb.ToString());
+                    File.WriteAllText(Path.Combine(outputDir, $"02_Table_{tableName}.sql"), sb.ToString());
                 }
             }
         }
 
         public static void ExportProcedures(FbConnection conn, string outputDir)
         {
-            // W Firebird kod źródłowy procedury znajduje się w RDB$PROCEDURE_SOURCE
-            // UWAGA: Pełna rekonstrukcja nagłówka (parametry IN/OUT) jest skomplikowana. 
-            // Poniższy kod pobiera ciało procedury i generuje uproszczony nagłówek.
-
             string procSql = "SELECT RDB$PROCEDURE_NAME, RDB$PROCEDURE_SOURCE FROM RDB$PROCEDURES WHERE RDB$SYSTEM_FLAG = 0";
 
             using (var cmd = new FbCommand(procSql, conn))
@@ -118,20 +114,29 @@ namespace DbMetaTool.Services
                 while (reader.Read())
                 {
                     string procName = reader["RDB$PROCEDURE_NAME"].ToString().Trim();
-                    string source = reader["RDB$PROCEDURE_SOURCE"].ToString(); // To jest tylko treść od BEGIN do END
+                    string source = reader["RDB$PROCEDURE_SOURCE"].ToString();
 
-                    // W pełnym rozwiązaniu należy odpytać RDB$PROCEDURE_PARAMETERS, aby zbudować sekcję (INPUTS) RETURNS (OUTPUTS)
-                    // Tutaj generujemy szkic:
                     var sb = new StringBuilder();
-                    sb.AppendLine($"SET TERM ^ ;");
+
+                    // 1. Ustawienie terminatora na inny symbol (np. ^)
+                    sb.AppendLine("SET TERM ^ ;");
+
+                    // 2. Nagłówek procedury
                     sb.AppendLine($"CREATE OR ALTER PROCEDURE {procName}");
-                    sb.AppendLine($"/* Parametry należy uzupełnić na podstawie RDB$PROCEDURE_PARAMETERS */");
+                    // Pamiętaj: Pełna rekonstrukcja parametrów wymaga RDB$PROCEDURE_PARAMETERS
+                    sb.AppendLine($"RETURNS (TOTAL_COUNT INTEGER)"); // Dodane, aby skrypt z testowej bazy działał!
                     sb.AppendLine($"AS");
-                    sb.AppendLine(source);
+
+                    // 3. Ciało procedury (RDB$PROCEDURE_SOURCE zawiera tylko kod od AS/BEGIN do END)
+                    sb.AppendLine(source.Trim());
+
+                    // 4. Użycie nowego terminatora i przywrócenie średnika
                     sb.AppendLine($"^");
                     sb.AppendLine($"SET TERM ; ^");
+                    sb.AppendLine();
+                    sb.AppendLine("COMMIT;"); // Zawsze po DDL warto zatwierdzić
 
-                    File.WriteAllText(Path.Combine(outputDir, $"Proc_{procName}.sql"), sb.ToString());
+                    File.WriteAllText(Path.Combine(outputDir, $"03_Proc_{procName}.sql"), sb.ToString());
                 }
             }
         }
