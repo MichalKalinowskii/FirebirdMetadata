@@ -12,6 +12,13 @@ namespace DbMetaTool
         // DbMetaTool update-db --connection-string "..." --scripts-dir "C:\scripts"
         public static int Main(string[] args)
         {
+            UpdateDatabase($@"
+                User=SYSDBA;Password=zaq1@WSX;
+                Database=C:\Users\admin\Desktop\firebirdDatabases\file.fdb;
+                DataSource=127.0.0.1;
+                Port=3050;
+                Dialect=3;
+                Charset=UTF8;", "C:\\Users\\admin\\Desktop\\firebirdDatabases\\updates");
             if (args.Length == 0)
             {
                 Console.WriteLine("Użycie:");
